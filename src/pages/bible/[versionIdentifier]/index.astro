@@ -1,0 +1,33 @@
+---
+import { getBibleNames, loadBible } from "@utils/bible.astro";
+import type { GetStaticPaths, InferGetStaticParamsType } from "astro";
+import osisToEn from "bible-reference-formatter";
+
+export const getStaticPaths = (async () => {
+  const bibleNames = await getBibleNames();
+  return bibleNames.map((bibleName) => {
+    return { params: { versionIdentifier: bibleName } };
+  });
+}) satisfies GetStaticPaths;
+
+type Params = InferGetStaticParamsType<typeof getStaticPaths>;
+
+const { versionIdentifier } = Astro.params as unknown as Params;
+
+const bible = await loadBible(versionIdentifier);
+---
+
+<p>This is the {bible.osisText.header.work.title}</p>
+<ul>
+  {
+    bible.osisText.div.map((book) => {
+      return (
+        <li>
+          <a href={`/bible/${versionIdentifier}/book/${book["@_osisID"]}`}>
+            {osisToEn("nlt-long", book["@_osisID"])}
+          </a>
+        </li>
+      );
+    })
+  }
+</ul>

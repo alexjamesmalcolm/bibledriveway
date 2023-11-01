@@ -1,0 +1,134 @@
+---
+interface Header {
+  revisionDesc: { date: string; p: string };
+  work: {
+    title: string;
+    creator: string[];
+    identifier: { "#text": string; "@_type": "OSIS" };
+    [key: string]: unknown;
+  };
+}
+
+export interface Verse {
+  "#text": string;
+  "@_osisID": string;
+}
+
+export interface Chapter {
+  verse: Verse[];
+  "@_osisID": string;
+}
+
+interface Book {
+  chapter: Chapter | Chapter[];
+  "@_type": "book";
+  "@_osisID": string;
+}
+
+interface Osis {
+  osisText: { header: Header; div: Book[] };
+}
+
+interface BibleFile {
+  "?xml": "";
+  osis: Osis;
+}
+
+export async function loadBibles() {
+  const results = (await Astro.glob("../../public/bibles/*.xml")) as {
+    default: BibleFile;
+  }[];
+  return results.map((result) => result.default.osis);
+}
+
+export async function getBibleNames(): Promise<string[]> {
+  const bibleFiles = await loadBibles();
+  return bibleFiles.map(getNameFromBible);
+}
+
+export function getNameFromBible(bible: Osis): string {
+  return bible.osisText.header.work.identifier["#text"];
+}
+
+export async function loadBible(identifier: string) {
+  const bibles = await loadBibles();
+
+  const bibleFile = bibles.find(
+    (bibleFile) => getNameFromBible(bibleFile) === identifier
+  );
+  if (bibleFile === undefined) {
+    throw new Error(`Unable to find bible ${identifier}`);
+  }
+  return bibleFile;
+}
+
+export async function findBook(
+  versionIdentifier: string,
+  bookShortName: string
+): Promise<Book> {
+  const book = (await loadBible(versionIdentifier)).osisText.div.find(
+    (book) => book["@_osisID"] === bookShortName
+  );
+  if (!book) throw new Error(`Unable to find book of name ${bookShortName}`);
+  return book;
+}
+
+export async function findChapter({
+  versionIdentifier,
+  bookShortName,
+  chapterNumber,
+}: {
+  versionIdentifier: string;
+  bookShortName: string;
+  chapterNumber: string;
+}): Promise<Chapter> {
+  const book = await findBook(versionIdentifier, bookShortName);
+  if (!Array.isArray(book.chapter)) {
+    if (chapterNumber === "1") return book.chapter;
+    throw new Error(
+      `There is not a chapter ${chapterNumber} in ${bookShortName}`
+    );
+  }
+  const chapter = book.chapter.find((chapter) => {
+    return chapter["@_osisID"].split(".")[1] === chapterNumber;
+  });
+  if (!chapter) {
+    throw new Error(
+      `There is not a chapter ${chapterNumber} in ${bookShortName}`
+    );
+  }
+  return chapter;
+}
+
+export async function findVerse({
+  versionIdentifier,
+  bookShortName,
+  chapterNumber,
+  verseNumber,
+}: {
+  versionIdentifier: string;
+  bookShortName: string;
+  chapterNumber: string;
+  verseNumber: string;
+}): Promise<Verse> {
+  const chapter = await findChapter({
+    versionIdentifier,
+    bookShortName,
+    chapterNumber,
+  });
+  const verse = chapter.verse.find((verse) => {
+    const currentVerseNumber = verse["@_osisID"].split(".")[2];
+    if (!currentVerseNumber)
+      throw new Error(
+        `Unable to parse verse number from verse ID ${verse["@_osisID"]}`
+      );
+    return currentVerseNumber === verseNumber;
+  });
+  if (!verse) {
+    throw new Error(
+      `Unable to find verse number for book ${bookShortName}, chapter ${chapterNumber}, verse ${verseNumber}`
+    );
+  }
+  return verse;
+}
+---

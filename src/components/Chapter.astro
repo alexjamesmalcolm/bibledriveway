@@ -1,0 +1,36 @@
+---
+import type { Chapter } from "@utils/bible.astro";
+
+interface Props {
+  chapter: Chapter;
+  versionIdentifier: string;
+}
+
+const { chapter, versionIdentifier } = Astro.props;
+---
+
+<div>
+  <slot />
+  <p>
+    {
+      chapter.verse.map((verse) => {
+        const idParts = verse["@_osisID"].split(".");
+        const book = idParts[0];
+        const chapterNumber = idParts[1];
+        const verseNumber = idParts[2];
+        return (
+          <Fragment>
+            <span>
+              <a
+                href={`/bible/${versionIdentifier}/book/${book}/chapter/${chapterNumber}/verse/${verseNumber}`}
+              >
+                <b>{verse["@_osisID"].split(".")[2]}</b>
+              </a>{" "}
+              {verse["#text"]}{" "}
+            </span>
+          </Fragment>
+        );
+      })
+    }
+  </p>
+</div>

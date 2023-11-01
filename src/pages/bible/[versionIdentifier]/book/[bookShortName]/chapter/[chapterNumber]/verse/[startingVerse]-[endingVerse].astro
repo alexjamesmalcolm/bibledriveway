@@ -1,0 +1,41 @@
+---
+import { findChapter } from "@utils/bible.astro";
+
+interface Params {
+  bookShortName: string;
+  chapterNumber: string;
+  startingVerse: string;
+  endingVerse: string;
+  versionIdentifier: string;
+}
+
+export const prerender = false;
+
+const {
+  bookShortName,
+  chapterNumber,
+  startingVerse,
+  endingVerse,
+  versionIdentifier,
+} = Astro.params as unknown as Params;
+
+const chapter = await findChapter({
+  versionIdentifier,
+  bookShortName,
+  chapterNumber,
+});
+
+const startingVerseInt = parseInt(startingVerse);
+const endingVerseInt = parseInt(endingVerse);
+
+const verses = chapter.verse.filter((verse) => {
+  const verseNumber = verse["@_osisID"].split(".")[2];
+  if (!verseNumber) throw new Error("Lol IDK");
+  const verseNumberInt = parseInt(verseNumber);
+  return verseNumberInt >= startingVerseInt && verseNumberInt <= endingVerseInt;
+});
+---
+
+<pre>
+  {verses.map(verse => verse["#text"]).join("")}
+</pre>
