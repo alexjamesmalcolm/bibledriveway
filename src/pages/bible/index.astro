@@ -1,19 +1,13 @@
 ---
 import { loadBibles, getNameFromBible } from "@utils/bible.astro";
-// const bibleNames = await getBibleNames();
 const bibles = await loadBibles();
 ---
 
 <h1>Bibles</h1>
-<!-- {
-  bibleNames.map((bibleName) => {
-    return <a href={`/bible/${bibleName}`}>{bibleName}</a>;
-  })
-} -->
 {
   bibles.map((bible) => {
     return (
-      <a href={`/bible/${getNameFromBible(bible)}`}>
+      <a href={`/bible/${getNameFromBible(bible)}/`}>
         {bible.osisText.header.work.title} ({getNameFromBible(bible)})
       </a>
     );

@@ -50,7 +50,7 @@ const chapters = Array.isArray(book.chapter) ? book.chapter : [book.chapter];
               <a
                 href={`/bible/${versionIdentifier}/book/${bookShortName}/chapter/${
                   chapter["@_osisID"].split(".")[1]
-                }`}
+                }/`}
               >
                 {osisToEn("nlt-long", chapter["@_osisID"])}
               </a>

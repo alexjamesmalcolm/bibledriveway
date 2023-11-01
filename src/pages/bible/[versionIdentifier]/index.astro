@@ -23,7 +23,7 @@ const bible = await loadBible(versionIdentifier);
     bible.osisText.div.map((book) => {
       return (
         <li>
-          <a href={`/bible/${versionIdentifier}/book/${book["@_osisID"]}`}>
+          <a href={`/bible/${versionIdentifier}/book/${book["@_osisID"]}/`}>
             {osisToEn("nlt-long", book["@_osisID"])}
           </a>
         </li>

@@ -22,7 +22,7 @@ const { chapter, versionIdentifier } = Astro.props;
           <Fragment>
             <span>
               <a
-                href={`/bible/${versionIdentifier}/book/${book}/chapter/${chapterNumber}/verse/${verseNumber}`}
+                href={`/bible/${versionIdentifier}/book/${book}/chapter/${chapterNumber}/verse/${verseNumber}/`}
               >
                 <b>{verse["@_osisID"].split(".")[2]}</b>
               </a>{" "}
