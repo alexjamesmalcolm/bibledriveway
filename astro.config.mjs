@@ -10,6 +10,7 @@ export default defineConfig({
   site: "https://example.com",
   integrations: [mdx(), sitemap()],
   output: "hybrid",
+  server: { host: "0.0.0.0" },
   adapter: nodejs({ mode: "standalone" }),
   vite: { plugins: [XMLLoader({ ignoreAttributes: false })] },
 });
