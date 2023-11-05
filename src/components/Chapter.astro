@@ -4,9 +4,10 @@ import type { Chapter } from "@utils/bible.astro";
 interface Props {
   chapter: Chapter;
   versionIdentifier: string;
+  language: string;
 }
 
-const { chapter, versionIdentifier } = Astro.props;
+const { chapter, versionIdentifier, language } = Astro.props;
 ---
 
 <div>
@@ -22,7 +23,7 @@ const { chapter, versionIdentifier } = Astro.props;
           <Fragment>
             <span>
               <a
-                href={`/bible/${versionIdentifier}/book/${book}/chapter/${chapterNumber}/verse/${verseNumber}/`}
+                href={`/language/${language}/bible/${versionIdentifier}/book/${book}/chapter/${chapterNumber}/verse/${verseNumber}/`}
               >
                 <b>{verse["@_osisID"].split(".")[2]}</b>
               </a>{" "}

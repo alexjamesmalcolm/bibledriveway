@@ -1,0 +1,37 @@
+---
+import { getBibleIndex, loadBible, osisToEn } from "@utils/bible.astro";
+import type { GetStaticPaths, InferGetStaticParamsType } from "astro";
+
+export const getStaticPaths = (async () => {
+  const bibles = await getBibleIndex();
+  return bibles.map((bible) => ({
+    params: { language: bible.language, versionIdentifier: bible.id },
+  }));
+}) satisfies GetStaticPaths;
+
+type Params = InferGetStaticParamsType<typeof getStaticPaths>;
+
+const { versionIdentifier, language } = Astro.params as unknown as Params;
+
+const bible = await loadBible(language, versionIdentifier);
+const books = Array.isArray(bible.osis.osisText.div)
+  ? bible.osis.osisText.div
+  : [];
+---
+
+<p>This is the {bible.osis.osisText.header.work.title}</p>
+<ul>
+  {
+    books.map((book) => {
+      return (
+        <li>
+          <a
+            href={`/language/${language}/bible/${versionIdentifier}/book/${book["@_osisID"]}/`}
+          >
+            {osisToEn(book["@_osisID"])}
+          </a>
+        </li>
+      );
+    })
+  }
+</ul>

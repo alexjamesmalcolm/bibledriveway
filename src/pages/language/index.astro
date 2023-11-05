@@ -1,0 +1,48 @@
+---
+import { getBibleIndex } from "@utils/bible.astro";
+import { getPrettyName } from "@utils/language";
+
+// This page should display all available languages
+
+const bibles = await getBibleIndex();
+const languages: Record<string, { id: string; title: string }[]> = {};
+for (const bible of bibles) {
+  const entry = { id: bible.id, title: bible.title };
+  if (bible.language in languages) {
+    languages[bible.language].push(entry);
+  } else {
+    languages[bible.language] = [entry];
+  }
+}
+---
+
+<style>
+  .bible-id {
+    margin-right: 1rem;
+  }
+</style>
+<ul>
+  {
+    Object.entries(languages).map(([language, bibles]) => {
+      // TODO Get full name of language just from code
+
+      return (
+        <li>
+          <a href={`/language/${language}`}>{getPrettyName(language)}</a>
+          <ul>
+            {bibles.map((bible) => {
+              return (
+                <li>
+                  <a href={`/language/${language}/bible/${bible.id}`}>
+                    <span class="bible-id">{bible.id}</span>{" "}
+                    <span>{bible.title}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </li>
+      );
+    })
+  }
+</ul>

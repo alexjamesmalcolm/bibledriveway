@@ -1,0 +1,78 @@
+---
+import { findVerse, osisToEn } from "@utils/bible.astro";
+
+export const prerender = false;
+
+// type Params = InferGetStaticParamsType<typeof getStaticPaths>;
+// type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+// export const getStaticPaths = (async () => {
+//   const bibles = await loadBibles();
+//   return bibles.flatMap((bible) => {
+//     return bible.osisText.div.flatMap((book) => {
+//       const bookShortName = book["@_osisID"];
+//       if (!Array.isArray(book.chapter)) {
+//         const chapterNumber = "1";
+//         return book.chapter.verse.map((verse) => {
+//           const verseNumber = verse["@_osisID"].split(".")[2];
+//           if (!verseNumber)
+//             throw new Error(`Unable to parse verse ID ${verse["@_osisID"]}`);
+//           return {
+//             params: {
+//               bookShortName,
+//               chapterNumber,
+//               verse: verseNumber,
+//               versionIdentifier: getNameFromBible(bible),
+//             },
+//           };
+//         });
+//       }
+//       return book.chapter.flatMap((chapter, chapterIndex) => {
+//         const chapterNumber = (chapterIndex + 1).toString();
+//         return chapter.verse.map((verse) => {
+//           const verseNumber = verse["@_osisID"].split(".")[2];
+//           if (!verseNumber)
+//             throw new Error(`Unable to parse verse ID ${verse["@_osisID"]}`);
+//           return {
+//             params: {
+//               bookShortName,
+//               chapterNumber,
+//               verse: verseNumber,
+//               versionIdentifier: getNameFromBible(bible),
+//             },
+//           };
+//         });
+//       });
+//     });
+//   });
+// }) satisfies GetStaticPaths;
+
+interface Params {
+  bookShortName: string;
+  chapterNumber: string;
+  verse: string;
+  versionIdentifier: string;
+  language: string;
+}
+
+const {
+  bookShortName,
+  chapterNumber,
+  verse: verseNumber,
+  versionIdentifier,
+  language,
+} = Astro.params as unknown as Params;
+
+const verse = await findVerse({
+  language,
+  versionIdentifier,
+  bookShortName,
+  chapterNumber,
+  verseNumber,
+});
+---
+
+<article>
+  <h1>{osisToEn(verse["@_osisID"])}</h1>
+  <p>{verse["#text"]}</p>
+</article>

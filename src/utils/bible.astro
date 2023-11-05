@@ -1,10 +1,15 @@
 ---
+import { wretch } from "@utils/wretch";
+import { XMLParser } from "fast-xml-parser";
+import osisToEnOriginal from "bible-reference-formatter";
+
 interface Header {
   revisionDesc: { date: string; p: string };
   work: {
     title: string;
     creator: string[];
     identifier: { "#text": string; "@_type": "OSIS" };
+    language: { "#text": string; "@_type": "IETF" };
     [key: string]: unknown;
   };
 }
@@ -26,7 +31,14 @@ interface Book {
 }
 
 interface Osis {
-  osisText: { header: Header; div: Book[] };
+  osisText: {
+    header: Header;
+    div: Book[];
+    // | {
+    //     titlePage: { p: string[] };
+    //     div: { title: string; p: string | unknown[]; "@_type": string }[];
+    //   };
+  };
 }
 
 interface BibleFile {
@@ -34,39 +46,102 @@ interface BibleFile {
   osis: Osis;
 }
 
-export async function loadBibles() {
-  const results = (await Astro.glob("../../public/bibles/*.xml")) as {
-    default: BibleFile;
-  }[];
-  return results.map((result) => result.default.osis);
+interface Index {
+  "?xml": unknown;
+  "?xml-model": unknown;
+  bibles: { language: Language[] };
 }
 
-export async function getBibleNames(): Promise<string[]> {
-  const bibleFiles = await loadBibles();
-  return bibleFiles.map(getNameFromBible);
+interface Language {
+  "@_title": string;
+  "@_id": string;
+  bible: IndexBible | IndexBible[];
+}
+interface IndexBible {
+  "@_title": string;
+  "@_id": string;
+}
+
+interface S3Index {
+  "?xml": { "@_version": "1.0"; "@_encoding": "UTF-8" };
+  ListBucketResult: {
+    Name: "bible-driveway";
+    Prefix: "";
+    KeyCount: number;
+    MaxKeys: 1000;
+    IsTruncated: boolean;
+    Contents: {
+      Key: string;
+      LastModified: string;
+      ETag: string;
+      Size: number;
+      StorageClass: "STANDARD" | string;
+    }[];
+    "@_xmlns": "http://s3.amazonaws.com/doc/2006-03-01/";
+  };
+}
+
+export async function loadXmlFile<Result extends any>(
+  path: string
+): Promise<Result> {
+  const parser = new XMLParser({ ignoreAttributes: false });
+  console.log(path);
+  const text = await wretch.get(path).text();
+  return parser.parse(text) as Result;
+}
+
+export function loadS3Index() {
+  return loadXmlFile<S3Index>("/?list-type=2");
+}
+
+export function loadBibleIndex() {
+  return loadXmlFile<Index>("/index.xml");
+}
+
+export async function getBibleIndex() {
+  const problemBibles = ["bible.en.leb.2010", "bwe", "bzy2000"];
+  const indexPromise = loadBibleIndex();
+  const s3Index = await loadS3Index();
+  const index = await indexPromise;
+  return index.bibles.language
+    .flatMap((language) => {
+      const bibles = Array.isArray(language.bible)
+        ? language.bible
+        : [language.bible];
+      return bibles.map((bible) => {
+        return {
+          language: language["@_id"],
+          id: bible["@_id"],
+          title: bible["@_title"],
+        };
+      });
+    })
+    .filter(({ id, language }) => {
+      return s3Index.ListBucketResult.Contents.some(({ Key: path }) => {
+        if (problemBibles.includes(id)) return false;
+        return path.includes(id) && path.includes(language);
+      });
+    });
+}
+
+export function loadBible(language: string, identifier: string) {
+  return loadXmlFile<BibleFile>(`/${language}/${identifier}.xml`);
 }
 
 export function getNameFromBible(bible: Osis): string {
   return bible.osisText.header.work.identifier["#text"];
 }
 
-export async function loadBible(identifier: string) {
-  const bibles = await loadBibles();
-
-  const bibleFile = bibles.find(
-    (bibleFile) => getNameFromBible(bibleFile) === identifier
-  );
-  if (bibleFile === undefined) {
-    throw new Error(`Unable to find bible ${identifier}`);
-  }
-  return bibleFile;
-}
-
 export async function findBook(
+  language: string,
   versionIdentifier: string,
   bookShortName: string
 ): Promise<Book> {
-  const book = (await loadBible(versionIdentifier)).osisText.div.find(
+  const bible = await loadBible(language, versionIdentifier);
+  if (!Array.isArray(bible.osis.osisText.div)) {
+    throw new Error(`Really not sure how to find ${bookShortName}`);
+  }
+  const book = bible.osis.osisText.div.find(
     (book) => book["@_osisID"] === bookShortName
   );
   if (!book) throw new Error(`Unable to find book of name ${bookShortName}`);
@@ -74,15 +149,17 @@ export async function findBook(
 }
 
 export async function findChapter({
+  language,
   versionIdentifier,
   bookShortName,
   chapterNumber,
 }: {
+  language: string;
   versionIdentifier: string;
   bookShortName: string;
   chapterNumber: string;
 }): Promise<Chapter> {
-  const book = await findBook(versionIdentifier, bookShortName);
+  const book = await findBook(language, versionIdentifier, bookShortName);
   if (!Array.isArray(book.chapter)) {
     if (chapterNumber === "1") return book.chapter;
     throw new Error(
@@ -101,17 +178,20 @@ export async function findChapter({
 }
 
 export async function findVerse({
+  language,
   versionIdentifier,
   bookShortName,
   chapterNumber,
   verseNumber,
 }: {
+  language: string;
   versionIdentifier: string;
   bookShortName: string;
   chapterNumber: string;
   verseNumber: string;
 }): Promise<Verse> {
   const chapter = await findChapter({
+    language,
     versionIdentifier,
     bookShortName,
     chapterNumber,
@@ -130,5 +210,19 @@ export async function findVerse({
     );
   }
   return verse;
+}
+
+export function osisToEn(osisId: string): string {
+  try {
+    return osisToEnOriginal("nlt-long", osisId);
+  } catch (error) {
+    const [book, chapter, verses] = osisId.split(".");
+    if (book && chapter && verses) {
+      return `${book} ${chapter}:${verses}`;
+    } else if (book && chapter) {
+      return `${book} ${chapter}`;
+    }
+    return book;
+  }
 }
 ---
